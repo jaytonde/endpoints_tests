@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+# Required: the model name accepted by the deployed endpoint.
+: "${VLLM_MODEL:?Set VLLM_MODEL to the served model name}"
+
+SERVER_URL="${VLLM_SERVER_URL:-http://localhost:8000}"
+TOKENIZER="${VLLM_TOKENIZER:-$VLLM_MODEL}"
+API_KEY="${VLLM_API_KEY:-}"
+INPUT_LEN="${INPUT_LEN:-30000}"
+OUTPUT_LEN="${OUTPUT_LEN:-128}"
+TTFT_SLA_MS="${TTFT_SLA_MS:-5000}"
+PROMPT_MULTIPLIER="${PROMPT_MULTIPLIER:-1}"
+RESULT_DIR="${RESULT_DIR:-./vllm-benchmark-results}"
+CONCURRENCIES=(16 32 64 128)
+
+command -v vllm >/dev/null || {
+    echo "ERROR: vllm CLI was not found."
+    exit 2
+}
+command -v python3 >/dev/null || {
+    echo "ERROR: python3 was not found."
+    exit 2
+}
+
+mkdir -p "$RESULT_DIR"
+overall_status=0
+
+auth_args=()
+if [[ -n "$API_KEY" ]]; then
+    auth_args=(--header "Authorization=Bearer $API_KEY")
+fi
+
+for concurrency in "${CONCURRENCIES[@]}"; do
+    num_prompts=$((concurrency * PROMPT_MULTIPLIER))
+    result_file="concurrency-${concurrency}.json"
+
+    echo
+    echo "Running concurrency=$concurrency, prompts=$num_prompts, input=$INPUT_LEN tokens"
+
+    if ! vllm bench serve \
+        --backend openai-chat \
+        --base-url "$SERVER_URL" \
+        --endpoint /v1/chat/completions \
+        --model "$VLLM_MODEL" \
+        --tokenizer "$TOKENIZER" \
+        --dataset-name random \
+        --random-input-len "$INPUT_LEN" \
+        --random-output-len "$OUTPUT_LEN" \
+        --random-range-ratio 0 \
+        --request-rate inf \
+        --max-concurrency "$concurrency" \
+        --num-prompts "$num_prompts" \
+        --num-warmups 1 \
+        --percentile-metrics ttft \
+        --metric-percentiles 99 \
+        --goodput "ttft:$TTFT_SLA_MS" \
+        --save-result \
+        --save-detailed \
+        --result-dir "$RESULT_DIR" \
+        --result-filename "$result_file" \
+        "${auth_args[@]}"; then
+        echo "FAIL concurrency=$concurrency: benchmark command failed"
+        overall_status=1
+        continue
+    fi
+
+    if python3 - "$RESULT_DIR/$result_file" "$concurrency" "$TTFT_SLA_MS" <<'PY'
+import json
+import sys
+
+path, concurrency, sla_ms = sys.argv[1], sys.argv[2], float(sys.argv[3])
+with open(path, encoding="utf-8") as file:
+    result = json.load(file)
+
+p99 = result.get("p99_ttft_ms")
+completed = result.get("completed", 0)
+expected = result.get("num_prompts", 0)
+
+if p99 is None:
+    print(f"FAIL concurrency={concurrency}: p99_ttft_ms missing from {path}")
+    raise SystemExit(1)
+
+passed = completed == expected and p99 < sla_ms
+status = "PASS" if passed else "FAIL"
+print(
+    f"{status} concurrency={concurrency}: "
+    f"p99 TTFT={p99:.2f} ms, SLA=<{sla_ms:.0f} ms, "
+    f"completed={completed}/{expected}"
+)
+raise SystemExit(0 if passed else 1)
+PY
+    then
+        :
+    else
+        overall_status=1
+    fi
+done
+
+echo
+if [[ "$overall_status" -eq 0 ]]; then
+    echo "PASS: all concurrency levels met the p99 TTFT SLA."
+else
+    echo "FAIL: one or more concurrency levels failed."
+fi
+
+exit "$overall_status"
