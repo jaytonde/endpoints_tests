@@ -3,20 +3,20 @@ set -uo pipefail
 
 # Model-specific sampling settings. Edit these defaults or override them through
 # environment variables when benchmarking a different model.
-TEMPERATURE="${TEMPERATURE:-0.0}"
-TOP_P="${TOP_P:-1.0}"
-TOP_K="${TOP_K:--1}"
+TEMPERATURE="${TEMPERATURE:-1.0}"
+TOP_P="${TOP_P:-0.95}"
+TOP_K="${TOP_K:-64}"
 
-VLLM_MODEL="${VLLM_MODEL:-gemma-3-1b-it}"
+VLLM_MODEL="${VLLM_MODEL:-gemma-4-E2B-it}"
 SERVER_URL="${VLLM_SERVER_URL:-http://localhost:30000}"
-TOKENIZER="${VLLM_TOKENIZER:-$VLLM_MODEL}"
+TOKENIZER="${VLLM_TOKENIZER:-/home/ubuntu/models/gemma-4-E2B-it}"
 INPUT_LEN="${INPUT_LEN:-10000}"
 OUTPUT_LEN="${OUTPUT_LEN:-100}"
 TTFT_SLA_MS="${TTFT_SLA_MS:-5000}"
 NUM_PROMPTS="${NUM_PROMPTS:-600}"
 NUM_WARMUPS="${NUM_WARMUPS:-4}"
 CONCURRENCY_LEVELS="${CONCURRENCY_LEVELS:-16 32 64 128 256 512}"
-RESULT_DIR="${RESULT_DIR:-./vllm-benchmark-results}"
+RESULT_DIR="${RESULT_DIR:-./vllm-benchmark-results/gemma-4-E2B-it}"
 read -r -a concurrencies <<< "$CONCURRENCY_LEVELS"
 
 mkdir -p "$RESULT_DIR"

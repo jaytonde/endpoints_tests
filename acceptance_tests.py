@@ -9,12 +9,18 @@ from pathlib import Path
 
 
 BASE_URL = "http://localhost:30000/v1"
-MODEL = "gemma-3-1b-it"
+MODEL = "gemma-4-E2B-it"
 API_KEY = os.getenv("VLLM_API_KEY", "EMPTY")
 IMAGE_PATH = Path(__file__).with_name("5_image.webp")
-TEST_IMAGE_CAPABILITY = "false"
-TEST_TOOL_CAPABILITY = "false"
-TEST_REASONING_CAPABILITY = "false"
+
+
+def env_flag(name, default=True):
+    return os.getenv(name, str(default)).lower() in {"1", "true", "yes", "on"}
+
+
+TEST_IMAGE_CAPABILITY = env_flag("TEST_IMAGE_CAPABILITY")
+TEST_TOOL_CAPABILITY = env_flag("TEST_TOOL_CAPABILITY")
+TEST_REASONING_CAPABILITY = env_flag("TEST_REASONING_CAPABILITY")
 
 
 def chat(payload):
@@ -32,14 +38,23 @@ def chat(payload):
 
 def main():
 
-    common = {"model": MODEL, "temperature": 0, "max_tokens": 256}
+    common = {
+        "model": MODEL,
+        "temperature": 1.0,
+        "top_p": 0.95,
+        "top_k": 64,
+        "max_tokens": 1024,
+    }
 
     response = chat({
         **common,
+        "chat_template_kwargs": {"enable_thinking": False},
         "messages": [{"role": "user", "content": "What is 2 + 2?"}],
     })
     print(json.dumps(response, indent=2))
     content = response["choices"][0]["message"].get("content") or ""
+
+    print(f"\nsimple chat response : {content}")
     chat_ok = "4" in content
     print("PASS basic chat" if chat_ok else "FAIL basic chat")
 
@@ -47,6 +62,7 @@ def main():
     if TEST_TOOL_CAPABILITY:
         tool_response = chat({
             **common,
+            "chat_template_kwargs": {"enable_thinking": False},
             "messages": [{"role": "user", "content": "What is the weather in London?"}],
             "tools": [{
                 "type": "function",
@@ -66,6 +82,7 @@ def main():
 
         message = tool_response["choices"][0]["message"]
         calls = message.get("tool_calls") or []
+        print(f"\nTEST_TOOL_CAPABILITY response : message -> {message}, calls -> {calls} ")
         tool_ok = bool(calls)
         if tool_ok:
             function = calls[0].get("function", {})
@@ -81,6 +98,7 @@ def main():
 
         no_tool_response = chat({
             **common,
+            "chat_template_kwargs": {"enable_thinking": False},
             "messages": [{"role": "user", "content": "What is 2 + 2?"}],
             "tools": [{
                 "type": "function",
@@ -98,6 +116,8 @@ def main():
             "tool_choice": "auto",
         })
         message = no_tool_response["choices"][0]["message"]
+        print(f"\nTEST_NO_TOOL_CAPABILITY response : message -> {message}")
+
         no_tool_ok = not message.get("tool_calls") and "4" in (message.get("content") or "")
 
         print("PASS no unnecessary tool call" if no_tool_ok else "FAIL no unnecessary tool call")
@@ -111,9 +131,17 @@ def main():
     if TEST_REASONING_CAPABILITY:
         reasoning_response = chat({
             **common,
-            "messages": [{"role": "user", "content": "Which is larger: 9.11 or 9.8?"}],
+            "max_tokens": 2048,
+            "chat_template_kwargs": {"enable_thinking": True},
+            "messages": [{
+                "role": "user",
+                "content": "Which is larger: 9.11 or 9.8? Explain your reasoning.",
+            }],
         })
         message = reasoning_response["choices"][0]["message"]
+
+        print(f"\nTEST_REASONING_CAPABILITY response : message -> {message}")
+
         reasoning_ok = isinstance(message.get("reasoning"), str) and bool(message["reasoning"].strip())
         content_ok = isinstance(message.get("content"), str) and bool(message["content"].strip())
 
@@ -131,23 +159,25 @@ def main():
             image_data = base64.b64encode(IMAGE_PATH.read_bytes()).decode("ascii")
             image_response = chat({
                 **common,
+                "chat_template_kwargs": {"enable_thinking": False},
                 "messages": [{
                     "role": "user",
                     "content": [
-                        {
-                            "type": "text",
-                            "text": "What single digit is shown in this image? Reply with only the digit.",
-                        },
                         {
                             "type": "image_url",
                             "image_url": {
                                 "url": f"data:image/webp;base64,{image_data}",
                             },
                         },
+                        {
+                            "type": "text",
+                            "text": "What single digit is shown in this image? Reply with only the digit.",
+                        },
                     ],
                 }],
             })
             image_content = image_response["choices"][0]["message"].get("content") or ""
+            print(f"TEST_IMAGE_CAPABILITY response : message -> {image_content}")
             image_ok = re.findall(r"\d+", image_content) == ["5"]
             print("PASS image understanding" if image_ok else "FAIL image understanding")
             if not image_ok:
