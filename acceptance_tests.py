@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 BASE_URL = "http://localhost:30000/v1"
-MODEL = "gemma-4-E2B-it"
+MODEL = "gemma-4-31B-it"
 API_KEY = os.getenv("VLLM_API_KEY", "EMPTY")
 IMAGE_PATH = Path(__file__).with_name("5_image.webp")
 
@@ -18,9 +18,9 @@ def env_flag(name, default=True):
     return os.getenv(name, str(default)).lower() in {"1", "true", "yes", "on"}
 
 
-TEST_IMAGE_CAPABILITY = env_flag("TEST_IMAGE_CAPABILITY")
-TEST_TOOL_CAPABILITY = env_flag("TEST_TOOL_CAPABILITY")
-TEST_REASONING_CAPABILITY = env_flag("TEST_REASONING_CAPABILITY")
+TEST_IMAGE_CAPABILITY = "true"
+TEST_TOOL_CAPABILITY = "true"
+TEST_REASONING_CAPABILITY = "true"
 
 
 def chat(payload):
