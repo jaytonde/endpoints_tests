@@ -1,18 +1,18 @@
-# Gemma 4 31B IT Results
+# Gemma 4 26B A4B IT Results
 
 ## Docker command
 
 ```bash
 sudo docker run --rm \
-  --name gemma4-31b-vllm \
+  --name gemma4-26b-a4b-vllm \
   --gpus all \
   --ipc=host \
   --cap-add IPC_LOCK \
   --ulimit memlock=-1 \
   --ulimit stack=67108864 \
   -p 127.0.0.1:30000:30000 \
-  -v /home/ubuntu/models/google-gemma-4-31B-it:/model_weights:ro \
-  -v /home/ubuntu/gemma4-31B-runtime-cache/vllm-v0.28.0:/runtime_cache \
+  -v /home/ubuntu/models/google-gemma-4-26B-A4B-it:/model_weights:ro \
+  -v /home/ubuntu/gemma4-26b-a4b-runtime-cache/vllm-v0.28.0:/runtime_cache \
   -e HF_HUB_OFFLINE=1 \
   -e TRANSFORMERS_OFFLINE=1 \
   -e HF_HOME=/runtime_cache \
@@ -29,7 +29,7 @@ sudo docker run --rm \
   -e TILELANG_CACHE_DIR=/runtime_cache/tilelang \
   serverless_vllm:v0.28.0 \
   /model_weights \
-  --served-model-name gemma-4-31B-it \
+  --served-model-name gemma-4-26B-A4B-it \
   --tensor-parallel-size 1 \
   --dtype bfloat16 \
   --gpu-memory-utilization 0.90 \
@@ -39,12 +39,11 @@ sudo docker run --rm \
   --enable-prefix-caching \
   --enable-prompt-tokens-details \
   --async-scheduling \
-  --limit-mm-per-prompt '{"image":4}' \
+  --limit-mm-per-prompt '{"image":4,"audio":1,"video":1}' \
   --mm-processor-kwargs '{"max_soft_tokens":1120}' \
   --enable-auto-tool-choice \
   --tool-call-parser gemma4 \
   --reasoning-parser gemma4 \
-  --chat-template examples/tool_chat_template_gemma4.jinja \
   --default-chat-template-kwargs '{"enable_thinking":true}' \
   --host 0.0.0.0 \
   --port 30000
@@ -63,17 +62,14 @@ PASS image understanding
 
 ## Concurrency benchmarks with SLA TTFT < 5000 ms
 
-Each run used 600 random prompts with a 10,000-token target input and a
-100-token output. All six runs completed 600 requests with zero failures.
-
 | Concurrency | TTFT P99 (ms) | SLA PASS/FAIL |
 |---:|---:|:---:|
-| 16 | 11162.46 | FAIL |
-| 32 | 27413.51 | FAIL |
-| 64 | 66537.61 | FAIL |
-| 128 | 142049.79 | FAIL |
-| 256 | 294211.10 | FAIL |
-| 512 | 596274.78 | FAIL |
+| 16 | 2319.64 | PASS |
+| 32 | 4858.62 | PASS |
+| 64 | 10544.97 | FAIL |
+| 128 | 22572.25 | FAIL |
+| 256 | 47820.06 | FAIL |
+| 512 | 97915.91 | FAIL |
 
 ## Phase-wise loading time
 
@@ -81,29 +77,20 @@ Each run used 600 random prompts with a 10,000-token target input and a
 |---|---:|
 | API initialization, configuration and engine-process startup | ~21.00 s |
 | Engine/distributed initialization | ~6.00 s |
-| Model loading | 129.58 s |
-| └ Safetensors weight loading | 128.14 s |
+| Model loading | 12.62 s |
+| └ Safetensors weight loading | 12.00 s |
 | Post-load encoder/cache preparation | ~25.00 s |
-| └ Cached Torch compilation loading | 0.71 s |
-| └ Initial profiling/warmup | 0.71 s |
-| KV-cache profiling and allocation | ~2.00 s |
-| Kernel warmup and FlashInfer autotuning | ~9.00 s |
-| CUDA graph capture | 20.00 s |
-| Remaining engine initialization | ~3.00 s |
-| API setup and application startup | ~58.00 s |
-| └ Multi-modal warmup | 56.66 s |
+| └ Cached Torch compilation loading | 0.59 s |
+| └ Initial profiling/warmup | 0.62 s |
+| KV-cache profiling and allocation | ~10.00 s |
+| Kernel warmup and FlashInfer autotuning | ~2.00 s |
+| CUDA graph capture | 17.00 s |
+| Remaining engine initialization | ~2.00 s |
+| API setup and application startup | ~60.00 s |
+| └ Multi-modal warmup | 56.80 s |
 | └ Read-only multi-modal warmup | 0.11 s |
-| **Total: container log start → API ready** | **~273.00 s** |
+| **Total: container log start → API ready** | **~156.00 s** |
 
 The persisted AOT compilation cache was reused during startup. Approximate phase
 values are derived from log timestamps; explicit vLLM timings are shown without
 an approximation marker.
-
-## OpenCode Harness Tests
-
-```text
-PASS creating python file
-PASS running python file
-PASS updating python file
-PASS deleting python file
-```
