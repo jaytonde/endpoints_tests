@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 BASE_URL = "http://localhost:30000/v1"
-MODEL = "gemma-4-26B-A4B-it"
+MODEL = "Qwen3.6-35B-A3B-FP8"
 API_KEY = os.getenv("VLLM_API_KEY", "EMPTY")
 IMAGE_PATH = Path(__file__).with_name("5_image.webp")
 

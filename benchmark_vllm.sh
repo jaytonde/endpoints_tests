@@ -5,18 +5,21 @@ set -uo pipefail
 # environment variables when benchmarking a different model.
 TEMPERATURE="${TEMPERATURE:-1.0}"
 TOP_P="${TOP_P:-0.95}"
-TOP_K="${TOP_K:-64}"
+TOP_K="${TOP_K:-20}"
+MIN_P="${MIN_P:-0.0}"
+PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.0}"
+REPETITION_PENALTY="${REPETITION_PENALTY:-1.0}"
 
-VLLM_MODEL="${VLLM_MODEL:-gemma-4-26B-A4B-it}"
+VLLM_MODEL="${VLLM_MODEL:-Qwen3.6-35B-A3B-FP8}"
 SERVER_URL="${VLLM_SERVER_URL:-http://localhost:30000}"
-TOKENIZER="${VLLM_TOKENIZER:-/home/ubuntu/models/gemma-4-26B-A4B-it}"
+TOKENIZER="${VLLM_TOKENIZER:-/home/ubuntu/models/Qwen3.6-35B-A3B-FP8}"
 INPUT_LEN="${INPUT_LEN:-10000}"
 OUTPUT_LEN="${OUTPUT_LEN:-100}"
 TTFT_SLA_MS="${TTFT_SLA_MS:-5000}"
 NUM_PROMPTS="${NUM_PROMPTS:-600}"
 NUM_WARMUPS="${NUM_WARMUPS:-4}"
 CONCURRENCY_LEVELS="${CONCURRENCY_LEVELS:-16 32 64 128 256 512}"
-RESULT_DIR="${RESULT_DIR:-./vllm-benchmark-results/gemma-4-26B-A4B-it}"
+RESULT_DIR="${RESULT_DIR:-./vllm-benchmark-results/Qwen3.6-35B-A3B-FP8}"
 read -r -a concurrencies <<< "$CONCURRENCY_LEVELS"
 
 mkdir -p "$RESULT_DIR"
@@ -44,6 +47,9 @@ for concurrency in "${concurrencies[@]}"; do
         --temperature "$TEMPERATURE" \
         --top-p "$TOP_P" \
         --top-k "$TOP_K" \
+        --min-p "$MIN_P" \
+        --presence-penalty "$PRESENCE_PENALTY" \
+        --repetition-penalty "$REPETITION_PENALTY" \
         --ignore-eos \
         --request-rate inf \
         --max-concurrency "$concurrency" \
