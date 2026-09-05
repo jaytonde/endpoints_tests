@@ -10,16 +10,16 @@ MIN_P="${MIN_P:-0.0}"
 PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.0}"
 REPETITION_PENALTY="${REPETITION_PENALTY:-1.0}"
 
-VLLM_MODEL="${VLLM_MODEL:-Qwen3.6-35B-A3B-FP8}"
+VLLM_MODEL="${VLLM_MODEL:-NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16}"
 SERVER_URL="${VLLM_SERVER_URL:-http://localhost:30000}"
-TOKENIZER="${VLLM_TOKENIZER:-/home/ubuntu/models/Qwen3.6-35B-A3B-FP8}"
+TOKENIZER="${VLLM_TOKENIZER:-/home/ubuntu/models/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16/hub/models--openai--NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16/snapshots/b5c939de8f754692c1647ca79fbf85e8c1e70f8a}"
 INPUT_LEN="${INPUT_LEN:-10000}"
 OUTPUT_LEN="${OUTPUT_LEN:-100}"
 TTFT_SLA_MS="${TTFT_SLA_MS:-5000}"
 NUM_PROMPTS="${NUM_PROMPTS:-600}"
 NUM_WARMUPS="${NUM_WARMUPS:-4}"
 CONCURRENCY_LEVELS="${CONCURRENCY_LEVELS:-16 32 64 128 256 512}"
-RESULT_DIR="${RESULT_DIR:-./vllm-benchmark-results/Qwen3.6-35B-A3B-FP8}"
+RESULT_DIR="${RESULT_DIR:-./vllm-benchmark-results/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16}"
 read -r -a concurrencies <<< "$CONCURRENCY_LEVELS"
 
 mkdir -p "$RESULT_DIR"
@@ -50,7 +50,6 @@ for concurrency in "${concurrencies[@]}"; do
         --min-p "$MIN_P" \
         --presence-penalty "$PRESENCE_PENALTY" \
         --repetition-penalty "$REPETITION_PENALTY" \
-        --ignore-eos \
         --request-rate inf \
         --max-concurrency "$concurrency" \
         --num-prompts "$NUM_PROMPTS" \

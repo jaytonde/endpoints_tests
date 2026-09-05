@@ -4,12 +4,16 @@ import os
 import sys
 import urllib.error
 import urllib.request
+from getpass import getpass
 from pathlib import Path
 
 
-BASE_URL = "http://localhost:30000/v1"
-MODEL = "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16"
-API_KEY = os.getenv("VLLM_API_KEY", "EMPTY")
+BASE_URL = os.getenv(
+    "JARVIS_BASE_URL",
+    "https://serverlessn.jarvislabs.net/openai/01M1P9NXHMX5X482T20B01VP8N/v1",
+).rstrip("/")
+MODEL = os.getenv("JARVIS_MODEL", "Qwen3.8-27B-FP8")
+API_KEY = os.getenv("JARVIS_API_TOKEN")
 IMAGE_PATH = Path(__file__).with_name("image.png")
 
 
@@ -36,6 +40,13 @@ def chat(payload):
 
 
 def main():
+    global API_KEY
+
+    if not API_KEY:
+        if sys.stdin.isatty():
+            API_KEY = getpass("Jarvis API token: ")
+        if not API_KEY:
+            raise SystemExit("JARVIS_API_TOKEN is not set.")
 
     common = {
         "model": MODEL,
